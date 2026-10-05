@@ -184,7 +184,6 @@ function parseCsv(text, colName) {
   return msgs;
 }
 
-  window.onload(startApp)
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 window._state = {
@@ -235,6 +234,8 @@ async function fetchMessages() {
   }
 }
 window._fetchMessages = fetchMessages;
+
+window.addEventListener("load", startApp)
 
 function startApp() {
   const url = document.getElementById('sheet-url').value.trim();
