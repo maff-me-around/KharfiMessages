@@ -186,7 +186,7 @@ function parseCsv(text, colName) {
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 window._state = {
-  started: false, scriptUrl: '', colName: 'Messaggio',
+  started: false, Url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJxJS7EchP94_xSW_1dkS_YofW84E5iYrKnA-KmxUyt7g_YDUmUgBDLDZPETQ-Jpr3Cd2h_A6eykOT/pub?output=csv', colName: 'Scrivi qualcosa <3',
   knownMessages: new Set(),
   bannedMessages: new Set(),
   bubbles: [],
@@ -200,7 +200,7 @@ async function fetchMessages() {
   const s = window._state;
   if (!s.scriptUrl) return;
   try {
-    const res = await fetch(s.scriptUrl, { cache: 'no-store', redirect: 'follow' });
+    const res = await fetch('https://script.google.com/macros/s/AKfycbwLUi0-47gEtudq0WJqEMPCle8BiAfyAVhTZsszr6OW4TThxOBnmFTSIeogUFSJHG3k/exec', { cache: 'no-store', redirect: 'follow' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
     // Prende la prima colonna non vuota di ogni riga come messaggio
