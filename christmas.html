@@ -69,7 +69,7 @@ async function fetchMessages() {
   const s = window._state;
   if (!s.scriptUrl) return;
   try {
-    const res = await fetch(s.scriptUrl, { cache: 'no-store', redirect: 'follow' });
+    const res = await fetch('https://script.google.com/macros/s/AKfycbwLUi0-47gEtudq0WJqEMPCle8BiAfyAVhTZsszr6OW4TThxOBnmFTSIeogUFSJHG3k/exec', { cache: 'no-store', redirect: 'follow' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
     for (const row of rows) {
