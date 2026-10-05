@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messaggi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #00b140; cursor: crosshair; }
+
+  /* ── Config panel ── */
+  #config {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.92);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 48px 56px; z-index: 200;
+    max-width: 500px; width: 90%;
+    font-family: 'DM Mono', monospace;
+  }
+  #config h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem; color: #f0ede6;
+    margin-bottom: 8px; letter-spacing: -0.02em;
+  }
+  #config p {
+    font-size: 0.72rem; color: rgba(240,237,230,0.4);
+    margin-bottom: 32px; line-height: 1.7;
+  }
+  #config label {
+    display: block; font-size: 0.62rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: rgba(240,237,230,0.35); margin-bottom: 8px;
+  }
+  #config input[type=text] {
+    width: 100%; background: transparent;
+    border: none; border-bottom: 1px solid rgba(240,237,230,0.18);
+    color: #f0ede6; font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; padding: 10px 0; outline: none;
+    transition: border-color 0.3s; margin-bottom: 24px;
+  }
+  #config input[type=text]:focus { border-bottom-color: #e8d5a3; }
+  #config .hint {
+    font-size: 0.62rem; color: rgba(240,237,230,0.25);
+    margin-top: -16px; margin-bottom: 24px; line-height: 1.7;
+  }
+  #config button {
+    background: #f0ede6; color: #080808; border: none;
+    padding: 14px 32px; font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer;
+    transition: background 0.2s; width: 100%;
+  }
+  #config button:hover { background: #e8d5a3; }
+  #error-msg { color: #c4786a; font-size: 0.68rem; margin-top: 12px; min-height: 20px; }
+
+  /* ── HUD ── */
+  #ui {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'DM Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(0,0,0,0.35); pointer-events: none; z-index: 50;
+  }
+  #badge {
+    position: fixed; top: 28px; right: 28px;
+    font-family: 'DM Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #000; background: rgba(255,255,255,0.5);
+    padding: 4px 10px;
+    z-index: 50; opacity: 0; transition: opacity 0.4s; pointer-events: none;
+  }
+  #badge.show { opacity: 1; }
+
+  /* ── Controls bar ── */
+  #controls {
+    position: fixed; top: 20px; left: 20px;
+    display: none; align-items: center; gap: 16px;
+    z-index: 50; font-family: 'DM Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(0,0,0,0.5);
+  }
+  #controls button {
+    background: none; border: 1px solid rgba(0,0,0,0.2);
+    color: rgba(0,0,0,0.45); font-family: 'DM Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 6px 14px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  #controls button:hover { border-color: rgba(0,0,0,0.6); color: rgba(0,0,0,0.8); }
+  #controls .sep { opacity: 0.2; }
+
+  /* Slider */
+  #size-wrap { display: flex; align-items: center; gap: 8px; }
+  #size-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 90px; height: 2px;
+    background: rgba(0,0,0,0.2); outline: none; border-radius: 2px;
+    cursor: pointer;
+  }
+  #size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: rgba(0,0,0,0.5); cursor: pointer;
+  }
+
+  /* ── Context menu ── */
+  #ctx-menu {
+    position: fixed; display: none;
+    background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.1);
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.06em; z-index: 300; overflow: hidden;
+  }
+  #ctx-menu div {
+    padding: 10px 20px; cursor: pointer; color: #f0ede6;
+    transition: background 0.15s;
+  }
+  #ctx-menu div:hover { background: rgba(196,120,106,0.4); color: #f0ede6; }
+
+  canvas { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Config -->
+<div id="config">
+  <h1>messaggi</h1>
+  <p>Incolla l'URL CSV pubblico del tuo Google Sheet.</p>
+  <label>URL CSV pubblico</label>
+  <input type="text" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+  <div class="hint">File → Condividi → Pubblica sul web → CSV → copia link</div>
+  <label>Colonna messaggi</label>
+  <input type="text" id="col-name" placeholder="es: Messaggio" value="Messaggio" />
+  <button onclick="startApp()">Avvia ↗</button>
+  <div id="error-msg"></div>
+</div>
+
+<!-- HUD -->
+<div id="ui">— messaggi —</div>
+<div id="badge">● nuovo messaggio</div>
+
+<!-- Controls -->
+<div id="controls">
+  <button onclick="window._fetchMessages && window._fetchMessages()">↺ aggiorna</button>
+  <span class="sep">|</span>
+  <div id="size-wrap">
+    <span>A</span>
+    <input type="range" id="size-slider" min="0.5" max="3" step="0.05" value="1">
+    <span style="font-size:0.85rem">A</span>
+  </div>
+  <span class="sep">|</span>
+  <button onclick="document.getElementById('config').style.display='block'">⚙ config</button>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu">
+  <div id="ctx-delete">🗑 Elimina messaggio</div>
+</div>
+
+<script>
+// ─── CSV ──────────────────────────────────────────────────────────────────────
+function splitCsvLine(line) {
+  const r = []; let cur = '', q = false;
+  for (const c of line) {
+    if (c === '"') q = !q;
+    else if (c === ',' && !q) { r.push(cur); cur = ''; }
+    else cur += c;
+  }
+  r.push(cur); return r;
+}
+function parseCsv(text, colName) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]).map(h => h.replace(/^"|"$/g,'').trim());
+  const idx = headers.findIndex(h => h.toLowerCase() === colName.toLowerCase());
+  if (idx === -1) return { error: `Colonna "${colName}" non trovata. Disponibili: ${headers.join(', ')}` };
+  const msgs = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const v = (cols[idx] || '').trim().replace(/^"|"$/g,'');
+    if (v) msgs.push(v);
+  }
+  return msgs;
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+window._state = {
+  started: false, scriptUrl: '', colName: 'Messaggio',
+  knownMessages: new Set(),
+  bannedMessages: new Set(),
+  bubbles: [],
+  sizeScale: 1,
+  entranceScale: 3.5,
+  deleteTarget: null,
+};
+
+// ─── FETCH (ogni 3 secondi) ───────────────────────────────────────────────────
+async function fetchMessages() {
+  const s = window._state;
+  if (!s.scriptUrl) return;
+  try {
+    const res = await fetch(s.scriptUrl, { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    // Prende la prima colonna non vuota di ogni riga come messaggio
+    // Usa la seconda chiave del JSON (indice 1) come colonna messaggi
+    const colKey = s.colName;
+    let newCount = 0;
+    for (const row of rows) {
+      // Prima prova col nome esatto, poi con la seconda chiave disponibile
+      const keys = Object.keys(row);
+      const val = row[colKey] !== undefined ? row[colKey] : row[keys[1]];
+      const msg = (val || '').toString().trim();
+      if (!msg) continue;
+      if (!s.knownMessages.has(msg) && !s.bannedMessages.has(msg)) {
+        s.knownMessages.add(msg);
+        s.bubbles.push({ text: msg, isNew: s.bubbles.length > 0 });
+        newCount++;
+      }
+    }
+    if (newCount > 0) {
+      const badge = document.getElementById('badge');
+      badge.textContent = newCount === 1 ? '● nuovo messaggio' : `● ${newCount} nuovi`;
+      badge.classList.add('show');
+      setTimeout(() => badge.classList.remove('show'), 3000);
+    }
+    const t = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('ui').textContent = `${s.bubbles.length} messaggi · ${t}`;
+  } catch(e) {
+    document.getElementById('ui').textContent = 'errore: ' + e.message;
+    console.error(e);
+  }
+}
+window._fetchMessages = fetchMessages;
+
+function startApp() {
+  const url = document.getElementById('sheet-url').value.trim();
+  const col = document.getElementById('col-name').value.trim() || 'Messaggio';
+  const err = document.getElementById('error-msg');
+  if (!url) { err.textContent = 'Inserisci un URL.'; return; }
+  err.textContent = '';
+  window._state.scriptUrl = url;
+  window._state.colName = col;
+  window._state.started = true;
+  document.getElementById('config').style.display = 'none';
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('ui').textContent = 'caricamento...';
+  fetchMessages();
+  setInterval(fetchMessages, 1000); // ← ogni 3 secondi
+}
+
+// ─── SLIDER ───────────────────────────────────────────────────────────────────
+document.getElementById('size-slider').addEventListener('input', function() {
+  window._state.sizeScale = parseFloat(this.value);
+});
+
+// ─── CONTEXT MENU ─────────────────────────────────────────────────────────────
+const ctxMenu = document.getElementById('ctx-menu');
+
+document.addEventListener('contextmenu', e => {
+  if (!window._state.started) return;
+  e.preventDefault();
+  // Chiedi al p5 sketch quale bolla è sotto il cursore
+  const bubble = window._getBubbleAt && window._getBubbleAt(e.clientX, e.clientY);
+  if (bubble) {
+    window._state.deleteTarget = bubble;
+    ctxMenu.style.left = e.clientX + 'px';
+    ctxMenu.style.top  = e.clientY + 'px';
+    ctxMenu.style.display = 'block';
+  }
+});
+
+document.getElementById('ctx-delete').addEventListener('click', () => {
+  const target = window._state.deleteTarget;
+  if (target && window._deleteBubble) window._deleteBubble(target);
+  ctxMenu.style.display = 'none';
+  window._state.deleteTarget = null;
+});
+
+document.addEventListener('click', () => { ctxMenu.style.display = 'none'; });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ctxMenu.style.display = 'none';
+    document.getElementById('config').style.display = 'block';
+  }
+});
+</script>
+
+<script>
+// ─── P5 SKETCH ────────────────────────────────────────────────────────────────
+const PALETTE = ['#ffffff','#f0f0f0','#e8e8e8','#d8f0e8','#e8e8d8','#f0e8f0'];
+
+new p5(function(p) {
+  const rendered    = [];
+  const renderedTexts = new Set();
+
+  // Esponi funzioni al DOM
+  window._getBubbleAt = (mx, my) => {
+    // Cerca dall'ultimo (top) al primo
+    for (let i = rendered.length - 1; i >= 0; i--) {
+      const b = rendered[i];
+      if (mx >= b.x - b.w/2 && mx <= b.x + b.w/2 &&
+          my >= b.y - b.h/2 && my <= b.y + b.h/2) return b;
+    }
+    return null;
+  };
+  window._deleteBubble = (bubble) => {
+    bubble.dying = true; // animazione fade-out
+  };
+
+  class Bubble {
+    constructor(text, isNew) {
+      this.text     = text;
+      this.isNew    = isNew;
+      this.x        = p.random(p.width * 0.15, p.width * 0.85);
+      this.y        = p.random(p.height * 0.15, p.height * 0.85);
+      this.vx       = p.random(-0.5, 0.5);
+      this.vy       = p.random(-0.5, 0.5);
+      this.ax       = 0; this.ay = 0;
+      this.col      = p.color(PALETTE[Math.floor(p.random(PALETTE.length))]);
+      this.alpha    = 0;
+      this.pad      = 14;
+      this.baseFS   = Math.floor(p.random(13, 19));
+      const es = (window._state && window._state.entranceScale) || 3.5;
+      this.fs       = isNew ? this.baseFS * es : this.baseFS;
+      this.targetFS = this.baseFS;
+      this.driftA   = p.random(p.TWO_PI);
+      this.driftS   = p.random(0.002, 0.006);
+      this.dying    = false;
+      this._dims();
+    }
+
+    _dims() {
+      const scale = window._state ? window._state.sizeScale : 1;
+      const fs = this.fs * scale;
+      p.textSize(fs);
+      this.w = p.textWidth(this.text) + this.pad * 2 * scale;
+      this.h = fs + this.pad * 1.4 * scale;
+    }
+
+    update() {
+      if (this.dying) { this.alpha -= 8; return; }
+      this.alpha = Math.min(230, this.alpha + 6);
+      if (this.fs > this.targetFS + 0.4) {
+        this.fs = p.lerp(this.fs, this.targetFS, 0.022);
+      }
+      this._dims();
+      this.driftA += this.driftS;
+      this.ax += Math.cos(this.driftA) * 0.012;
+      this.ay += Math.sin(this.driftA) * 0.012;
+      this.vx = (this.vx + this.ax) * 0.987;
+      this.vy = (this.vy + this.ay) * 0.987;
+      this.ax = 0; this.ay = 0;
+      const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+      if (spd > 1.8) { this.vx = this.vx/spd*1.8; this.vy = this.vy/spd*1.8; }
+      this.x += this.vx; this.y += this.vy;
+      const m = 20;
+      if (this.x - this.w/2 < m)          { this.x = m + this.w/2;          this.vx =  Math.abs(this.vx)*0.6; }
+      if (this.x + this.w/2 > p.width-m)  { this.x = p.width-m - this.w/2;  this.vx = -Math.abs(this.vx)*0.6; }
+      if (this.y - this.h/2 < m)          { this.y = m + this.h/2;          this.vy =  Math.abs(this.vy)*0.6; }
+      if (this.y + this.h/2 > p.height-m) { this.y = p.height-m - this.h/2; this.vy = -Math.abs(this.vy)*0.6; }
+    }
+
+    push(fx, fy) { this.ax += fx; this.ay += fy; }
+
+    draw() {
+      if (this.alpha <= 0) return;
+      const scale   = window._state ? window._state.sizeScale : 1;
+      const fs      = this.fs * scale;
+      const pad     = this.pad * scale;
+      const entering = this.fs > this.targetFS + 1;
+      const x = this.x - this.w/2, y = this.y - this.h/2;
+
+      p.push();
+
+      // Glow entrata
+      if (entering) {
+        p.drawingContext.shadowColor = `rgba(255,255,255,0.9)`;
+        p.drawingContext.shadowBlur  = 30;
+      }
+
+      // Box — sfondo semitrasparente scuro per leggibilità sul greenscreen
+      p.fill(0, 0, 0, this.alpha * 0.55);
+      p.stroke(255, 255, 255, entering ? this.alpha * 0.9 : this.alpha * 0.35);
+      p.strokeWeight(entering ? 1.5 : 0.7);
+      p.rect(x, y, this.w, this.h, 6);
+
+      p.drawingContext.shadowBlur = 0;
+
+      // Testo
+      p.noStroke();
+      p.fill(255, 255, 255, this.alpha);
+      p.textSize(fs);
+      p.textAlign(p.LEFT, p.CENTER);
+      p.text(this.text, x + pad, y + this.h/2 + 1);
+      p.pop();
+    }
+
+    isDead() { return this.dying && this.alpha <= 0; }
+  }
+
+  function repulse() {
+    const margin = 22, force = 0.3;
+    for (let i = 0; i < rendered.length; i++) {
+      for (let j = i+1; j < rendered.length; j++) {
+        const a = rendered[i], b = rendered[j];
+        if (a.dying || b.dying) continue;
+        const ox = (a.w + b.w)/2 + margin - Math.abs(a.x - b.x);
+        const oy = (a.h + b.h)/2 + margin - Math.abs(a.y - b.y);
+        if (ox > 0 && oy > 0) {
+          const dx = b.x - a.x || 0.01, dy = b.y - a.y || 0.01;
+          const dist = Math.max(Math.sqrt(dx*dx + dy*dy), 8);
+          const f = force * Math.min(ox, oy) / dist;
+          a.push(-dx*f, -dy*f);
+          b.push( dx*f,  dy*f);
+        }
+      }
+    }
+  }
+
+  p.setup = function() {
+    p.createCanvas(p.windowWidth, p.windowHeight);
+    p.textFont('DM Mono');
+  };
+  p.windowResized = function() { p.resizeCanvas(p.windowWidth, p.windowHeight); };
+
+  p.draw = function() {
+    const s = window._state;
+
+    // Sfondo greenscreen puro — nessun trail
+    p.background(0, 177, 64);
+
+    if (!s.started) return;
+
+    // Sync nuovi messaggi
+    for (const raw of s.bubbles) {
+      if (!renderedTexts.has(raw.text)) {
+        renderedTexts.add(raw.text);
+        rendered.push(new Bubble(raw.text, raw.isNew));
+      }
+    }
+
+    // Rimuovi bubble morte e aggiorna knownMessages
+    for (let i = rendered.length - 1; i >= 0; i--) {
+      if (rendered[i].isDead()) {
+        const dead = rendered.splice(i, 1)[0];
+        renderedTexts.delete(dead.text);
+        s.bannedMessages.add(dead.text);  // non torna mai più
+        s.knownMessages.delete(dead.text);
+        s.bubbles = s.bubbles.filter(b => b.text !== dead.text);
+        const t = new Date().toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        document.getElementById('ui').textContent = `${rendered.length} messaggi · ${t}`;
+      }
+    }
+
+    repulse();
+    for (const b of rendered) { b.update(); b.draw(); }
+  };
+});
+</script>
+</body>
+</html>
