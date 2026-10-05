@@ -184,7 +184,7 @@ function parseCsv(text, colName) {
   return msgs;
 }
 
-  startApp()
+  window.onload(startApp)
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 window._state = {
@@ -248,6 +248,7 @@ function startApp() {
   document.getElementById('config').style.display = 'none';
   document.getElementById('controls').style.display = 'flex';
   document.getElementById('ui').textContent = 'caricamento...';
+  console.log('ciao');
   fetchMessages();
   setInterval(fetchMessages, 1000); // ← ogni 3 secondi
 }
