@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lettera a Babbo Natale</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #8b4513; }
+  canvas { display: block; }
+
+  #url-input {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 8px; align-items: center;
+    z-index: 100; font-family: 'Caveat', cursive;
+  }
+  #url-input input {
+    width: 420px; padding: 8px 14px;
+    border: none; border-bottom: 2px solid #8b4513;
+    background: rgba(255,248,230,0.9);
+    font-family: 'Caveat', cursive; font-size: 1rem;
+    color: #3d1f00; outline: none;
+    border-radius: 4px;
+  }
+  #url-input button {
+    background: #8b4513; color: #fff8e6;
+    border: none; padding: 8px 18px;
+    font-family: 'Caveat', cursive; font-size: 1rem;
+    cursor: pointer; border-radius: 4px;
+    transition: background 0.2s;
+  }
+  #url-input button:hover { background: #a0522d; }
+  #err { color: #c0392b; font-family: 'Caveat', cursive; font-size: 0.9rem;
+    position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div id="url-input">
+  <input type="text" id="su" placeholder="URL Apps Script  →  https://script.google.com/macros/s/.../exec" />
+  <button onclick="startApp()">Avvia</button>
+</div>
+
+<script>
+// ── CONFIG — metti qui il tuo URL se vuoi saltare il pannello ──────────────
+const HARDCODED_URL = '';          // es: 'https://script.google.com/...'
+const COL_NAME      = 'Scrivi qualcosa <3';
+// ──────────────────────────────────────────────────────────────────────────
+
+window._state = {
+  started: false,
+  scriptUrl: HARDCODED_URL,
+  colName: COL_NAME,
+  messages: [],          // {text, displayed, charIndex, done}
+  bannedMessages: new Set(),
+  knownMessages: new Set(),
+  typing: false,         // c'è un messaggio in corso di scrittura?
+};
+
+if (HARDCODED_URL) {
+  document.getElementById('url-input').style.display = 'none';
+  window._state.started = true;
+}
+
+async function fetchMessages() {
+  const s = window._state;
+  if (!s.scriptUrl) return;
+  try {
+    const res = await fetch(s.scriptUrl, { cache: 'no-store', redirect: 'follow' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    for (const row of rows) {
+      const keys = Object.keys(row);
+      const val = row[s.colName] !== undefined ? row[s.colName] : row[keys[1]];
+      const msg = (val || '').toString().trim();
+      if (!msg) continue;
+      if (!s.knownMessages.has(msg) && !s.bannedMessages.has(msg)) {
+        s.knownMessages.add(msg);
+        s.messages.push({ text: msg, charIndex: 0, done: false });
+      }
+    }
+  } catch(e) {
+    document.getElementById('err').textContent = 'Errore: ' + e.message;
+    console.error(e);
+  }
+}
+
+function startApp() {
+  const url = document.getElementById('su').value.trim();
+  if (!url) { document.getElementById('err').textContent = 'Inserisci un URL.'; return; }
+  window._state.scriptUrl = url;
+  window._state.started = true;
+  document.getElementById('url-input').style.display = 'none';
+  document.getElementById('err').textContent = '';
+  fetchMessages();
+  setInterval(fetchMessages, 2000);
+}
+
+if (HARDCODED_URL) {
+  fetchMessages();
+  setInterval(fetchMessages, 2000);
+}
+</script>
+
+<script>
+new p5(function(p) {
+  // ── Font & layout ─────────────────────────────────────────────────────────
+  let myFont;
+  const MARGIN_X    = 0.12;  // fraction of width
+  const MARGIN_TOP  = 0.13;
+  const LINE_H      = 48;    // px between lines
+  const FONT_SIZE   = 28;
+  const TYPING_SPEED = 2;    // chars per frame
+
+  // Scroll offset (in px, positive = scrolled up)
+  let scrollY = 0;
+  let targetScrollY = 0;
+
+  // Cursor blink
+  let cursorVisible = true;
+  let lastBlink = 0;
+
+  // Paper texture noise
+  let paperGraphic;
+
+  p.preload = function() {
+    // p5 doesn't load google fonts natively; we use drawingContext directly
+  };
+
+  p.setup = function() {
+    p.createCanvas(p.windowWidth, p.windowHeight);
+    p.textFont('Caveat');
+    makePaper();
+  };
+
+  p.windowResized = function() {
+    p.resizeCanvas(p.windowWidth, p.windowHeight);
+    makePaper();
+  };
+
+  function makePaper() {
+    // Generate parchment texture offscreen
+    paperGraphic = p.createGraphics(p.width, p.height);
+    paperGraphic.noStroke();
+    // Base color
+    paperGraphic.background(245, 232, 196);
+    // Noise grain
+    paperGraphic.loadPixels();
+    for (let i = 0; i < paperGraphic.pixels.length; i += 4) {
+      const n = p.random(-18, 18);
+      paperGraphic.pixels[i]   = p.constrain(paperGraphic.pixels[i]   + n, 0, 255);
+      paperGraphic.pixels[i+1] = p.constrain(paperGraphic.pixels[i+1] + n, 0, 255);
+      paperGraphic.pixels[i+2] = p.constrain(paperGraphic.pixels[i+2] + n, 0, 255);
+    }
+    paperGraphic.updatePixels();
+
+    // Subtle vignette
+    for (let r = Math.max(p.width, p.height); r > 0; r -= 4) {
+      const alpha = p.map(r, 0, Math.max(p.width, p.height), 60, 0);
+      paperGraphic.fill(180, 140, 80, alpha);
+      paperGraphic.ellipse(p.width/2, p.height/2, r, r);
+    }
+
+    // Horizontal lines like lined paper
+    paperGraphic.stroke(180, 160, 110, 40);
+    paperGraphic.strokeWeight(1);
+    const mx = p.width * MARGIN_X;
+    const mt = p.height * MARGIN_TOP;
+    for (let y = mt + LINE_H; y < p.height * 0.92; y += LINE_H) {
+      paperGraphic.line(mx, y, p.width - mx, y);
+    }
+
+    // Red vertical margin line (like real letter paper)
+    paperGraphic.stroke(200, 100, 100, 60);
+    paperGraphic.strokeWeight(1.5);
+    paperGraphic.line(mx * 0.7, mt * 0.5, mx * 0.7, p.height * 0.92);
+  }
+
+  p.draw = function() {
+    // Draw paper
+    p.image(paperGraphic, 0, 0);
+
+    const s = window._state;
+    if (!s.started) {
+      drawHeader();
+      return;
+    }
+
+    // Advance typing
+    advanceTyping(s);
+
+    // Smooth scroll
+    scrollY = p.lerp(scrollY, targetScrollY, 0.08);
+
+    const mx = p.width * MARGIN_X;
+    const mt = p.height * MARGIN_TOP;
+    const maxW = p.width - mx * 2;
+
+    p.push();
+    p.translate(0, -scrollY);
+
+    // Header
+    drawHeader();
+
+    // Messages
+    let y = mt + LINE_H;
+    p.textFont('Caveat');
+    p.textSize(FONT_SIZE);
+
+    for (let i = 0; i < s.messages.length; i++) {
+      const m = s.messages[i];
+      const displayText = m.done ? m.text : m.text.substring(0, m.charIndex);
+
+      // Wrap text
+      const lines = wrapText(displayText, maxW);
+      for (let li = 0; li < lines.length; li++) {
+        p.fill(50, 30, 10, 220);
+        p.noStroke();
+        p.textAlign(p.LEFT, p.BASELINE);
+        p.text(lines[li], mx, y);
+        y += LINE_H;
+      }
+
+      // Cursor at end of currently typing message
+      if (!m.done && i === s.messages.length - 1) {
+        // Blink
+        if (p.millis() - lastBlink > 500) {
+          cursorVisible = !cursorVisible;
+          lastBlink = p.millis();
+        }
+        if (cursorVisible) {
+          p.fill(180, 60, 60, 200);
+          p.noStroke();
+          const lastLine = lines[lines.length - 1] || '';
+          p.textSize(FONT_SIZE);
+          const cx = mx + p.textWidth(lastLine);
+          const cy = y - LINE_H;
+          p.rect(cx + 2, cy - FONT_SIZE * 0.8, 2, FONT_SIZE * 0.9);
+        }
+      }
+
+      y += LINE_H * 0.3; // extra gap between messages
+    }
+
+    p.pop();
+
+    // Clip top (paper header stays fixed)
+    p.noStroke();
+    p.fill(245, 232, 196);
+    // Top fade
+    for (let i = 0; i < mt * 0.8; i++) {
+      const a = p.map(i, 0, mt * 0.8, 255, 0);
+      p.fill(245, 232, 196, a);
+      p.rect(0, i, p.width, 1);
+    }
+    // Redraw header on top (fixed)
+    drawHeader();
+
+    // Compute scroll target
+    const contentH = y + scrollY;
+    const visibleH = p.height * 0.88;
+    if (contentH > visibleH) {
+      targetScrollY = contentH - visibleH;
+    }
+  };
+
+  function advanceTyping(s) {
+    // Find first unfinished message
+    const current = s.messages.find(m => !m.done);
+    if (!current) return;
+    current.charIndex = Math.min(current.charIndex + TYPING_SPEED, current.text.length);
+    if (current.charIndex >= current.text.length) current.done = true;
+  }
+
+  function drawHeader() {
+    const mx = p.width * MARGIN_X;
+    p.push();
+    p.textFont('Caveat');
+    p.textAlign(p.CENTER, p.BASELINE);
+
+    // Title
+    p.fill(160, 40, 40, 220);
+    p.textSize(42);
+    p.text('Caro Babbo Natale,', p.width / 2, p.height * MARGIN_TOP * 0.55);
+
+    // Subtitle
+    p.fill(100, 60, 30, 160);
+    p.textSize(20);
+    p.text('questi sono i desideri di tutti ♥', p.width / 2, p.height * MARGIN_TOP * 0.82);
+
+    // Decorative snowflakes in corners
+    p.textSize(28);
+    p.fill(180, 60, 60, 120);
+    p.text('❄', mx * 0.4, p.height * MARGIN_TOP * 0.65);
+    p.text('❄', p.width - mx * 0.4, p.height * MARGIN_TOP * 0.65);
+
+    p.pop();
+  }
+
+  function wrapText(text, maxW) {
+    if (!text) return [''];
+    const words = text.split(' ');
+    const lines = [];
+    let current = '';
+    p.textSize(FONT_SIZE);
+    for (const word of words) {
+      const test = current ? current + ' ' + word : word;
+      if (p.textWidth(test) > maxW && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+    return lines.length ? lines : [''];
+  }
+});
+</script>
+</body>
+</html>
